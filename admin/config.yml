@@ -1,0 +1,227 @@
+# Admin panel (Sveltia CMS 0.264.0). Rules: specs/v4-admin-and-growth.md. Guide: docs/ADMIN.md.
+# Saving in the panel commits to the GitHub repository; GitHub Actions then rebuilds and publishes the site.
+backend:
+  name: github
+  repo: ttilabs11-byte/an-naashir-site
+  branch: main
+  base_url: https://AUTH-WORKER.workers.dev # replace at go-live (Sveltia CMS Authenticator on Cloudflare Workers)
+
+# PDFs are served as they are; covers live beside the code so Astro can slim them (cover field below).
+media_folder: /public/books
+public_folder: /books
+
+collections:
+  - name: books
+    label: کتابیں
+    label_singular: کتاب
+    description: Books. The web address is set once, when the book is created.
+    folder: src/content/books
+    extension: md
+    format: frontmatter
+    create: true
+    delete: true
+    slug: "{{fields.slug}}"
+    identifier_field: title
+    summary: "{{title}}"
+    sortable_fields: [order, released, title]
+    fields:
+      - { name: slug, label: ویب پتہ, widget: string, pattern: ['^[a-z0-9]+(-[a-z0-9]+)*$', 'Latin letters, digits and dashes only'], hint: "Latin letters, used in the web address, e.g. sabr-ki-taqat. Set once; changing the title later keeps the address." }
+      - { name: title, label: عنوان, widget: string, hint: "English title (for an Urdu book, its English translation)." }
+      - { name: titleUrdu, label: اردو عنوان, widget: string, required: false, hint: "Urdu title (shown on Urdu pages; for an English book, shown under its title)." }
+      - { name: titleRoman, label: رومن عنوان, widget: string, required: false, hint: "The Urdu title in Latin letters, e.g. Sabr ki Taqat. Shown under the English title on English pages. Not needed for English books." }
+      - { name: author, label: مصنف, widget: string }
+      - { name: authorRoman, label: مصنف (رومن), widget: string, required: false, hint: "The author's name in Latin letters, e.g. Namoona Musannif. Shown on English pages. Not needed if the name above is already in Latin letters." }
+      - { name: language, label: زبان, widget: select, options: [Urdu, English, Arabic, Urdu & Arabic], default: Urdu }
+      - { name: topic, label: موضوع, widget: relation, collection: settings, file: topics, value_field: topics.*.slug, display_fields: [topics.*.name], search_fields: [topics.*.name] }
+      - { name: released, label: اشاعت کی تاریخ, widget: datetime, format: YYYY-MM-DD, date_format: YYYY-MM-DD, time_format: false, hint: "Release date. Books released in the last 60 days show 'نئی'." }
+      - { name: color, label: سرورق کا رنگ, widget: select, options: [rust, blue, plum, teal, charcoal], default: blue, hint: "Cloth colour of the drawn cover (used when there is no cover image)." }
+      - { name: cover, label: سرورق کی تصویر, widget: image, required: false, media_folder: /src/assets/covers, public_folder: ../../assets/covers, hint: "Optional. Portrait 2:3, JPG or PNG. Leave empty for a drawn cover." }
+      - { name: pdf, label: پی ڈی ایف, widget: file, media_folder: /public/books, public_folder: /books, hint: "The book's PDF (up to 25 MB). Page count is read from it." }
+      - { name: pages, label: صفحات, widget: number, value_type: int, required: false, hint: "Only when PDFs are hosted elsewhere (pdfBase); otherwise leave empty." }
+      - { name: pdfBytes, label: پی ڈی ایف کا سائز, widget: number, value_type: int, required: false, hint: "Only when PDFs are hosted elsewhere; file size in bytes." }
+      - { name: price, label: قیمت, widget: number, value_type: int, required: false, hint: "Printed copy price in rupees. Leave empty if not sold in print." }
+      - { name: signedPrice, label: دستخط کی اضافی قیمت, widget: number, value_type: int, required: false, hint: "Extra rupees per signed copy. Needs a price. Leave empty for no signed option." }
+      - { name: order, label: ترتیب, widget: number, value_type: int, default: 0, hint: "Smaller numbers come first in the list." }
+      - { name: body, label: تعارف, widget: text, hint: "Two or three sentences about the book." }
+      - { name: descriptionEnglish, label: انگریزی تعارف, widget: text, required: false, hint: "The introduction in English, plain text; a blank line starts a new paragraph. Empty: English pages show the Urdu one." }
+      - { name: pullQuote, label: نمایاں جملہ, widget: text, required: false, hint: "One or two lines from the book itself, shown large when it is the featured book. The book's own words only, never a Quran verse or hadith. Empty: the introduction is shown." }
+      - { name: pullQuoteEn, label: "Pull quote (English)", widget: text, required: false, hint: "The same lines in English. Empty: English pages show the Urdu ones." }
+      - { name: insidePages, label: اندر کے صفحات, widget: list, required: false, field: { name: page, label: صفحہ, widget: number, value_type: int, min: 1 }, max: 3, hint: "Up to three page numbers of the PDF to show under Look inside. Empty: pages 2, 3 and 4." }
+
+  - name: reviews
+    label: قارئین کی رائے
+    label_singular: رائے
+    description: Reader reviews sent on WhatsApp. Add only reviews the reader agreed to publish.
+    folder: src/content/reviews
+    extension: md
+    format: frontmatter
+    create: true
+    delete: true
+    slug: "{{year}}{{month}}{{day}}-{{fields.book}}-{{hour}}{{minute}}"
+    identifier_field: name
+    summary: "{{name}} · {{book}} · {{date}}"
+    sortable_fields: [date, name]
+    fields:
+      - { name: book, label: کتاب, widget: relation, collection: books, value_field: "{{slug}}", display_fields: [title], search_fields: [title, titleUrdu] }
+      - { name: name, label: نام, widget: string, hint: "The reader's name as they want it shown." }
+      - { name: nameRoman, label: نام (رومن), widget: string, required: false, hint: "The name in Latin letters, for English pages." }
+      - { name: city, label: شہر, widget: string, required: false }
+      - { name: cityRoman, label: شہر (رومن), widget: string, required: false, hint: "The city in Latin letters, e.g. Karachi." }
+      - { name: date, label: تاریخ, widget: datetime, format: YYYY-MM-DD, date_format: YYYY-MM-DD, time_format: false }
+      - { name: body, label: رائے, widget: text, hint: "The review, copied exactly." }
+      - { name: textEnglish, label: انگریزی ترجمہ, widget: text, required: false, hint: "English translation of the comment, plain text. English pages add 'Translated from Urdu' under it. Empty: English pages show the Urdu original." }
+
+  - name: sets
+    label: "سیٹ / Sets"
+    label_singular: سیٹ
+    description: Book sets sold together at one price (2 to 8 books that have a price; the set price must be below their total).
+    folder: src/content/sets
+    extension: md
+    format: frontmatter
+    create: true
+    delete: true
+    slug: "{{fields.slug}}"
+    identifier_field: titleUrdu
+    summary: "{{titleUrdu}}"
+    sortable_fields: [order, titleUrdu]
+    fields:
+      - { name: slug, label: ویب پتہ, widget: string, pattern: ['^[a-z0-9]+(-[a-z0-9]+)*$', 'Latin letters, digits and dashes only'], hint: "Latin letters, e.g. ramzan-ka-set. Set once." }
+      - { name: titleUrdu, label: اردو نام, widget: string }
+      - { name: title, label: انگریزی نام, widget: string, hint: "The set's name in English, for English pages." }
+      - { name: books, label: کتابیں, widget: relation, collection: books, value_field: "{{slug}}", display_fields: [title], search_fields: [title, titleUrdu], multiple: true, min: 2, max: 8, hint: "2 to 8 books. Each must have a price." }
+      - { name: price, label: سیٹ کی قیمت, widget: number, value_type: int, min: 1, hint: "In rupees; must be less than the books' prices added up." }
+      - { name: note, label: ایک سطر, widget: string, required: false, hint: "Short line under the name (Urdu)." }
+      - { name: noteEnglish, label: انگریزی سطر, widget: string, required: false }
+      - { name: order, label: ترتیب, widget: number, value_type: int, default: 0, hint: "Lower numbers show first." }
+  - name: settings
+    label: ترتیبات
+    description: Site name, WhatsApp number, featured book, topics and the wording on the pages.
+    editor: { preview: false }
+    files:
+      - name: settings
+        label: عام ترتیبات
+        file: src/data/settings.json
+        format: json
+        fields:
+          - { name: name, label: نام, widget: string }
+          - { name: nameLatin, label: انگریزی نام, widget: string }
+          - { name: tagline, label: ٹیگ لائن, widget: string }
+          - { name: taglineEnglish, label: انگریزی ٹیگ لائن, widget: string, required: false, hint: "The tagline in English, for English pages." }
+          - { name: promise, label: وعدہ, widget: string, hint: "One line under the name on the home page." }
+          - { name: promiseEnglish, label: انگریزی وعدہ, widget: string, required: false, hint: "The home-page line in English." }
+          - { name: featured, label: منتخب کتاب, widget: relation, collection: books, value_field: "{{slug}}", display_fields: [title], search_fields: [title, titleUrdu] }
+          - { name: whatsapp, label: واٹس ایپ نمبر, widget: string, pattern: ['^92[0-9]{10}$', 'Digits only, starting 92, e.g. 923001234567'], hint: "Digits only with country code, no + or spaces." }
+          - { name: phoneDisplay, label: دکھایا جانے والا نمبر, widget: string, pattern: ['^\+92 [0-9 ]+$', 'Like +92 300 1234567'] }
+          - { name: whatsappChannel, label: واٹس ایپ چینل, widget: string, required: false, pattern: ['^https://whatsapp\.com/channel/[A-Za-z0-9]+$', 'A link like https://whatsapp.com/channel/...'], hint: "Optional. Adds a follow button to the subscribe band." }
+          - { name: demo, label: نمونہ, widget: boolean, hint: "Turn off when all real books are in." }
+      - name: shop
+        label: "دکان: ڈیلیوری، ادائیگی، واپسی"
+        file: src/data/shop.json
+        format: json
+        fields:
+          - { name: deliveryMin, label: "ڈیلیوری کم از کم دن", widget: number, value_type: int, min: 1, hint: "Fewest days a parcel takes." }
+          - { name: deliveryMax, label: "ڈیلیوری زیادہ سے زیادہ دن", widget: number, value_type: int, min: 1, hint: "Most days a parcel takes." }
+          - { name: courierFee, label: "کوریئر کا خرچ (روپے)", widget: number, value_type: int, min: 0, hint: "Delivery charge per order by courier." }
+          - { name: bookPostFee, label: "ڈاک کا خرچ (روپے)", widget: number, value_type: int, min: 0, required: false, hint: "Flat charge per order by Pakistan Post. Shown only when Raast ID or IBAN is filled (pay first)." }
+          - { name: freeDeliveryOver, label: "اس رقم یا اس سے زیادہ پر مفت ڈیلیوری", widget: number, value_type: int, min: 1, required: false, hint: "Leave empty for no free delivery." }
+          - { name: cod, label: "ادائیگی کتاب ملنے پر", widget: boolean, hint: "Cash on delivery. If off, fill Raast ID or IBAN." }
+          - { name: returnsUr, label: "واپسی کی پالیسی (اردو)", widget: text }
+          - { name: returnsEn, label: "Returns policy (English)", widget: text }
+          - { name: raastId, label: "راست آئی ڈی", widget: string, required: false, hint: "Your Raast ID or the phone number linked to it. Filling this or the IBAN turns on pay-first." }
+          - { name: iban, label: IBAN, widget: string, required: false, pattern: ['^\s*PK\d{2}[A-Za-z]{4}\d{16}\s*$', 'Like PK36SCBL0000001123456702 (24 characters, no spaces)'] }
+          - { name: accountTitle, label: "اکاؤنٹ کا نام", widget: string, required: false }
+          - { name: prepayNoteUr, label: "پہلے ادائیگی کی ہدایت (اردو)", widget: string, required: false, hint: "e.g. Send the receipt screenshot on WhatsApp." }
+          - { name: prepayNoteEn, label: "Pay-first note (English)", widget: string, required: false }
+      - name: topics
+        label: موضوعات
+        file: src/data/topics.json
+        format: json
+        fields:
+          - name: topics
+            label: موضوعات
+            label_singular: موضوع
+            widget: list
+            summary: "{{fields.name}}"
+            fields:
+              - { name: slug, label: ویب پتہ, widget: string, pattern: ['^[a-z0-9]+(-[a-z0-9]+)*$', 'Latin letters, digits and dashes only'], hint: "Latin letters, used in the web address, e.g. patience. Do not change once books use it." }
+              - { name: name, label: نام, widget: string }
+              - { name: line, label: ایک سطر, widget: string, hint: "The short line shown under the topic name." }
+              - { name: nameEnglish, label: انگریزی نام, widget: string, required: false, hint: "Topic name in English, e.g. Worry and calm." }
+              - { name: lineEnglish, label: انگریزی سطر, widget: string, required: false, hint: "The short line in English, e.g. When the heart is restless." }
+              - { name: cloth, label: رنگ, widget: select, options: [rust, blue, plum, teal, charcoal] }
+      - name: hero
+        label: "ہیرو سلائیڈز / Hero slides"
+        file: src/data/hero.json
+        format: json
+        fields:
+          - name: slides
+            label: سلائیڈیں
+            label_singular: سلائیڈ
+            widget: list
+            summary: "{{fields.kind}} {{fields.ref}}"
+            hint: "1 to 6 slides switched on, shown in this order. Empty text uses the book's, set's or topic's own words."
+            fields:
+              - { name: kind, label: قسم, widget: select, options: [message, book, set, topic], hint: "message = the tagline and promise; book, set or topic = that item on the stage." }
+              - { name: ref, label: کتاب، سیٹ یا موضوع, widget: string, required: false, hint: "The web-address name (slug) of the book, set or topic, e.g. sabr-ki-taqat. Empty = the featured book, the first set or the first topic. Ignored for message." }
+              - { name: cloth, label: پس منظر کا رنگ, widget: select, required: false, options: [rust, blue, plum, teal, charcoal], hint: "Empty = lapis blue." }
+              - { name: headUr, label: سرخی (اردو), widget: string, required: false }
+              - { name: headEn, label: "Headline (English)", widget: string, required: false }
+              - { name: lineUr, label: سطر (اردو), widget: string, required: false }
+              - { name: lineEn, label: "Line (English)", widget: string, required: false }
+              - { name: "on", label: دکھائیں, widget: boolean, default: true }
+      - name: text-ur
+        label: "صفحات کی عبارت (اردو)"
+        file: src/data/text-ur.json
+        format: json
+        fields:
+          - { name: trust, label: "اوپر کی تین باتیں", widget: list, min: 3, max: 3, field: { name: line, label: "سطر", widget: string } }
+          - { name: needH, label: "موضوعات کا عنوان", widget: string }
+          - { name: newH, label: "نئی کتابوں کا عنوان", widget: string, hint: "Also used as the footer link." }
+          - { name: featured, label: "منتخب کتاب کا عنوان", widget: string, hint: "The heading above the featured book. The book itself is chosen in عام ترتیبات." }
+          - { name: allH, label: "سب کتابوں کا عنوان", widget: string, hint: "Also used as the footer link." }
+          - { name: wadaH, label: "گنتی کا عنوان", widget: string }
+          - { name: wadaBooks, label: "گنتی: کتابیں", widget: string, hint: "Shown after the number of books." }
+          - { name: wadaPages, label: "گنتی: صفحات", widget: string, hint: "Shown after the number of pages." }
+          - { name: wadaPrice, label: "گنتی: قیمت", widget: string, hint: "Shown after the price (0)." }
+          - { name: howH, label: "طریقے کا عنوان", widget: string }
+          - { name: steps, label: "تین قدم", widget: list, min: 3, max: 3, summary: "{{fields.title}}", fields: [{ name: title, label: "قدم کا نام", widget: string }, { name: text, label: "قدم کی تفصیل", widget: text }] }
+          - { name: revH, label: "آراء کا عنوان", widget: string, hint: "Also the reviews heading on book pages." }
+          - { name: subH, label: "خبر کا عنوان", widget: string }
+          - { name: subP, label: "خبر کی تفصیل", widget: text }
+          - { name: subMsg, label: "خبر کا پیغام", widget: string, hint: "The WhatsApp message a reader sends to ask for updates." }
+          - { name: footLine, label: "فوٹر کی سطر", widget: text, hint: "Shown after the tagline at the foot of every page." }
+          - { name: aboutIntro, label: "تعارف", widget: text, hint: "{name} is replaced by the publisher's name." }
+          - { name: aboutOrderH, label: "منگوانے کا عنوان", widget: string }
+          - { name: aboutOrder, label: "منگوانے کا طریقہ", widget: text }
+          - { name: aboutPayH, label: "ادائیگی کا عنوان", widget: string }
+          - { name: aboutPay, label: "ڈیلیوری اور ادائیگی", widget: text, hint: "Leave off the final full stop." }
+          - { name: aboutSourcesH, label: "حوالوں کا عنوان", widget: string }
+          - { name: aboutSources, label: "قرآن و حدیث کے حوالے", widget: text }
+      - name: text-en
+        label: "Page text (English)"
+        file: src/data/text-en.json
+        format: json
+        fields:
+          - { name: trust, label: "Three promises at the top", widget: list, min: 3, max: 3, field: { name: line, label: "Line", widget: string } }
+          - { name: needH, label: "Topics heading", widget: string }
+          - { name: newH, label: "New books heading", widget: string, hint: "Also used as the footer link." }
+          - { name: featured, label: "Featured book heading", widget: string, hint: "The heading above the featured book. The book itself is chosen in عام ترتیبات." }
+          - { name: allH, label: "All books heading", widget: string, hint: "Also used as the footer link." }
+          - { name: wadaH, label: "Numbers heading", widget: string }
+          - { name: wadaBooks, label: "Numbers: books", widget: string, hint: "Shown after the number of books." }
+          - { name: wadaPages, label: "Numbers: pages", widget: string, hint: "Shown after the number of pages." }
+          - { name: wadaPrice, label: "Numbers: price", widget: string, hint: "Shown after the price (0)." }
+          - { name: howH, label: "How-to heading", widget: string }
+          - { name: steps, label: "Three steps", widget: list, min: 3, max: 3, summary: "{{fields.title}}", fields: [{ name: title, label: "Step name", widget: string }, { name: text, label: "Step text", widget: text }] }
+          - { name: revH, label: "Reviews heading", widget: string, hint: "Also the reviews heading on book pages." }
+          - { name: subH, label: "Updates heading", widget: string }
+          - { name: subP, label: "Updates text", widget: text }
+          - { name: subMsg, label: "Updates message", widget: string, hint: "The WhatsApp message a reader sends to ask for updates." }
+          - { name: footLine, label: "Footer line", widget: text, hint: "Shown after the tagline at the foot of every page." }
+          - { name: aboutIntro, label: "About: introduction", widget: text, hint: "{name} is replaced by the publisher's name." }
+          - { name: aboutOrderH, label: "About: ordering heading", widget: string }
+          - { name: aboutOrder, label: "About: how to order", widget: text }
+          - { name: aboutPayH, label: "About: payment heading", widget: string }
+          - { name: aboutPay, label: "About: delivery and payment", widget: text, hint: "Leave off the final full stop." }
+          - { name: aboutSourcesH, label: "About: references heading", widget: string }
+          - { name: aboutSources, label: "About: Quran and hadith references", widget: text }

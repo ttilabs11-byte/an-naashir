@@ -1,0 +1,7 @@
+# Cloudflare Pages headers. Hashed files never change, so browsers may keep them for a year.
+/fonts/jn-*
+  Cache-Control: public, max-age=31536000, immutable
+/fonts/al-*
+  Cache-Control: public, max-age=31536000, immutable
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable

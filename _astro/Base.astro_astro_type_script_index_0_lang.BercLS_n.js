@@ -1,0 +1,1 @@
+import{t as e}from"./preload-helper.DygEbaNj.js";matchMedia(`(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)`).matches&&e(()=>import(`./light.BTW2ys8_.js`).then(e=>e.light()),[]);
